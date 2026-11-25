@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="fr"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>HomeController.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">tasks-api</a> &gt; <a href="index.source.html" class="el_package">com.devsecops.tasks</a> &gt; <span class="el_source">HomeController.java</span></div><h1>HomeController.java</h1><pre class="source lang-java linenums">package com.devsecops.tasks;
+
+import org.springframework.http.MediaType;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+/** Page d'accueil, utilisee par le test &quot;curl&quot; du pipeline. */
+@RestController
+<span class="fc" id="L9">public class HomeController {</span>
+
+    @GetMapping(value = &quot;/&quot;, produces = MediaType.TEXT_HTML_VALUE)
+    public String home() {
+<span class="fc" id="L13">        return &quot;&quot;&quot;</span>
+                &lt;!DOCTYPE html&gt;
+                &lt;html lang=&quot;fr&quot;&gt;
+                &lt;head&gt;&lt;meta charset=&quot;utf-8&quot;&gt;&lt;title&gt;Tasks API&lt;/title&gt;&lt;/head&gt;
+                &lt;body&gt;
+                  &lt;h1&gt;Tasks API - projet DevSecOps&lt;/h1&gt;
+                  &lt;p&gt;&lt;a href=&quot;/api/tasks&quot;&gt;/api/tasks&lt;/a&gt;&lt;/p&gt;
+                &lt;/body&gt;
+                &lt;/html&gt;
+                &quot;&quot;&quot;;
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>
