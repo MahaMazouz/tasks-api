@@ -172,3 +172,4 @@ jobs:
           docker tag "$IMAGE_LOCAL" "$IMAGE_NAME:latest"
           docker tag "$IMAGE_LOCAL" "$IMAGE_NAME:${GITHUB_SHA::7}"
           docker push --all-tags "$IMAGE_NAME"
+          
