@@ -1,0 +1,6 @@
+com\devsecops\tasks\TaskRequest.class
+com\devsecops\tasks\TaskService.class
+com\devsecops\tasks\HomeController.class
+com\devsecops\tasks\TasksApplication.class
+com\devsecops\tasks\TaskController.class
+com\devsecops\tasks\Task.class
