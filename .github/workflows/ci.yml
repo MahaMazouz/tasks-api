@@ -213,16 +213,18 @@ jobs:
           name: sbom
           path: sbom.cyclonedx.json
 
-  # ---------------------------------------------------------------
+    # ---------------------------------------------------------------
   # 7. Push Docker Hub : seulement si TOUT est vert, sur main (TP1 / TP2)
   # ---------------------------------------------------------------
   push:
     name: 7. Push Docker Hub
     runs-on: ubuntu-latest
-    needs: [sonarcloud,trivy, sbom]
+    needs: [sonarcloud, trivy, sbom]
     if: github.event_name == 'push'
     env:
       IMAGE_NAME: ${{ secrets.DOCKERHUB_USERNAME }}/tasks-api
+    outputs:
+      digest: ${{ steps.push.outputs.digest }}
     steps:
       - name: Download image
         uses: actions/download-artifact@v4
@@ -233,14 +235,87 @@ jobs:
         run: docker load -i image.tar
 
       - name: Login to Docker Hub
-        uses: docker/login-action@v3
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Tag and push Docker image
+        id: push
         run: |
           docker tag "$IMAGE_LOCAL" "$IMAGE_NAME:latest"
           docker tag "$IMAGE_LOCAL" "$IMAGE_NAME:${GITHUB_SHA::7}"
           docker push --all-tags "$IMAGE_NAME"
+          REF=$(docker inspect --format='{{index .RepoDigests 0}}' "$IMAGE_NAME:latest")
+          echo "digest=${REF#*@}" >> "$GITHUB_OUTPUT"
+          echo "Image poussee : $REF"
+  # ---------------------------------------------------------------
+  # 8. Cosign : signature de l'image + SBOM attache (sans cle) - NOUVEAU
+  # ---------------------------------------------------------------
+  sign:
+    name: 8. Cosign - signature + attestation SBOM
+    runs-on: ubuntu-latest
+    needs: push
+    permissions:
+      contents: read
+      id-token: write   # jeton d'identite GitHub (OIDC) utilise par Cosign
+    env:
+      IMAGE_NAME: ${{ secrets.DOCKERHUB_USERNAME }}/tasks-api
+      DIGEST: ${{ needs.push.outputs.digest }}
+    steps:
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
 
+      - name: Download SBOM
+        uses: actions/download-artifact@v4
+        with:
+          name: sbom
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Sign the image (keyless)
+        run: cosign sign --yes "$IMAGE_NAME@$DIGEST"
+
+      - name: Attach the SBOM as a signed attestation
+        run: |
+          cosign attest --yes --type cyclonedx \
+            --predicate sbom.cyclonedx.json "$IMAGE_NAME@$DIGEST"
+  # ---------------------------------------------------------------
+  # 9. Cosign : verification de la signature et du SBOM - NOUVEAU
+  # ---------------------------------------------------------------
+  verify:
+    name: 9. Cosign - verification
+    runs-on: ubuntu-latest
+    needs: [push, sign]
+    env:
+      IMAGE_NAME: ${{ secrets.DOCKERHUB_USERNAME }}/tasks-api
+      DIGEST: ${{ needs.push.outputs.digest }}
+      IDENTITY: ^https://github.com/${{ github.repository }}/
+      ISSUER: https://token.actions.githubusercontent.com
+    steps:
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Verify the signature
+        run: |
+          cosign verify "$IMAGE_NAME@$DIGEST" \
+            --certificate-identity-regexp "$IDENTITY" \
+            --certificate-oidc-issuer "$ISSUER" > /dev/null
+          echo "Signature valide : image signee par le workflow de ${{ github.repository }}"
+
+      - name: Verify the SBOM attestation
+        run: |
+          cosign verify-attestation "$IMAGE_NAME@$DIGEST" --type cyclonedx \
+            --certificate-identity-regexp "$IDENTITY" \
+            --certificate-oidc-issuer "$ISSUER" > /dev/null
+          echo "SBOM authentique : attestation CycloneDX verifiee"
